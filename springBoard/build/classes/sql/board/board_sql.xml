@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="board">
+    
+    <resultMap type="com.spring.board.vo.BoardVo" id="boardVo">
+    	<result property="boardType" 	column="BOARD_TYPE"/>
+    	<result property="boardNum" 	column="BOARD_NUM"/>
+    	<result property="boardTitle" 	column="BOARD_TITLE"/>
+    	<result property="boardComment" column="BOARD_COMMENT"/>
+    	<result property="codeId" column="CODE_ID"/>
+    	<result property="codeName" column="CODE_NAME"/>
+    </resultMap>
+    
+    <resultMap type="com.spring.board.vo.ComCodeVo" id="comCodeVo">
+    	<result property="codeId" column="CODE_ID"/>
+    	<result property="codeName" column="CODE_NAME"/>
+    	<result property="codeType" column="CODE_TYPE"/>
+    </resultMap>
+
+	<select id="codeIdNameList" parameterType="com.spring.board.vo.ComCodeVo" resultMap="comCodeVo">
+	   	SELECT
+			CODE_NAME
+			,CODE_ID
+		FROM
+			COM_CODE
+		WHERE
+			CODE_TYPE='menu'
+    </select>
+
+    
+    <select id="boardList" parameterType="com.spring.board.vo.PageVo" resultMap="boardVo">
+        SELECT 
+		  CODE_NAME
+		  ,BOARD_NUM
+		  ,BOARD_TYPE
+		  ,BOARD_TITLE
+		  ,BOARD_COMMENT
+		  ,TOTAL_CNT
+		FROM
+		(
+		  SELECT
+		      	CODE_NAME
+				,BOARD_NUM
+				,BOARD_TITLE
+				,BOARD_COMMENT
+		      	,ROW_NUMBER() OVER(ORDER BY BOARD_NUM DESC) AS NUMROW
+		      	,COUNT(*) OVER() AS TOTAL_CNT
+		      	,BOARD_TYPE
+			FROM
+				BOARD, COM_CODE
+			WHERE
+				CODE_ID = BOARD_TYPE
+				<if test="codeId != null"> <!-- null일경우 조건문 없이 출력(전체출력) -->
+					AND CODE_ID IN
+					<foreach collection="codeId" item="c" open="(" close=")" separator=","> <!-- 받은 인자값을 foreach item에 넣어서 #{}로 반복출력 -->
+						#{c}
+					</foreach>
+				</if>
+			)
+		WHERE NUMROW BETWEEN (#{pageNo}-1)*10 + 1 AND (#{pageNo})*10
+    </select>
+    
+    <select id="boardTotal" parameterType="Integer" resultType="Integer">
+		  SELECT
+		      	COUNT(*) AS TOTAL_CNT
+			FROM
+				BOARD	
+    </select>
+    	
+    <select id="boardView" parameterType="com.spring.board.vo.BoardVo" resultMap="boardVo">
+    	SELECT
+        	BOARD_TYPE
+			,BOARD_NUM
+			,BOARD_TITLE
+			,BOARD_COMMENT
+			,CODE_NAME
+		FROM
+			BOARD, COM_CODE
+    	WHERE 	BOARD_TYPE = #{boardType}
+    	AND 	BOARD_NUM  = #{boardNum}
+    	AND		BOARD_TYPE = CODE_ID
+    </select>	
+    
+	<select id="boardInsert" parameterType="com.spring.board.vo.BoardVo">
+        INSERT INTO 
+        BOARD
+        (BOARD_TYPE
+        ,BOARD_NUM
+        ,BOARD_TITLE
+        ,BOARD_COMMENT
+        ,CREATOR
+        ,CREATE_TIME
+        ,MODIFIER
+        ,MODIFIED_TIME
+        )
+        VALUES
+        (#{boardType}
+<!--         ,(SELECT TO_NUMBER(MAX(BOARD_NUM)+1) BOARD_NUM이 NULL일때 오류-->
+			 ,(SELECT (NVL(MAX(BOARD_NUM),0)+1) <!-- NVL 통해서 MAX(BOARD_NUM)이 NULL값일때 0으로 치환 -->
+        
+	    FROM BOARD
+	    <!-- WHERE BOARD_TYPE = '1' -->)
+        ,#{boardTitle}
+        ,#{boardComment}
+        ,'SYSTEM'
+        ,TO_CHAR(SYSDATE)
+        ,'SYSTEM'
+        ,TO_CHAR(SYSDATE)
+        )
+    </select>
+    
+<!--     
+    <select id="boardInsert" parameterType="com.spring.board.vo.BoardVo">
+        INSERT INTO 
+        BOARD
+        (BOARD_TYPE
+        ,BOARD_NUM
+        ,BOARD_TITLE
+        ,BOARD_COMMENT
+        ,CREATOR
+        ,CREATE_TIME
+        ,MODIFIER
+        ,MODIFIED_TIME
+        )
+        VALUES
+        (#{boardType}
+        ,(SELECT TO_NUMBER(MAX(BOARD_NUM)+1) BOARD_NUM이 NULL일때 오류
+			 ,(SELECT (NVL(MAX(BOARD_NUM),0)+1) NVL 통해서 MAX(BOARD_NUM)이 NULL값일때 0으로 치환
+        
+	    FROM BOARD
+	    WHERE BOARD_TYPE = '1')
+        ,#{boardTitle}
+        ,#{boardComment}
+        ,'SYSTEM'
+        ,TO_CHAR(SYSDATE)
+        ,'SYSTEM'
+        ,TO_CHAR(SYSDATE)
+        )
+    </select>
+ -->
+	<update id="boardUpdate" parameterType="com.spring.board.vo.BoardVo">
+		UPDATE board
+		SET BOARD_TITLE = #{boardTitle}
+			,BOARD_COMMENT = #{boardComment}
+			,BOARD_TYPE = #{boardType}
+		WHERE BOARD_NUM = #{boardNum}
+	</update>
+
+	<delete id="boardDelete" parameterType="int">
+		DELETE
+		FROM board
+		WHERE BOARD_NUM = #{boardNum}
+	</delete>
+    
+</mapper>
